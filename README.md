@@ -68,4 +68,4 @@ com.example.expense
 ---
 ## 贡献
 
-欢迎提交 Issue 或 Pull Request 来帮助改进这个项目！🤝
+欢迎提交 Issue 或 Pull Request 来帮助改进这个项目！🤝 如果您喜欢这个项目，请为我🌟 Star。您的鼓励是我持续优化该项目的动力！
