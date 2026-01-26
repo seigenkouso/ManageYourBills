@@ -173,10 +173,11 @@ fun HomeScreen(
 
 @Composable
 fun ViewToggle(isYearView: Boolean, onToggle: (Boolean) -> Unit) {
+    // 外层容器：使用稍微深一点的背景，增加对比度
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest) // 更适合深色模式的容器色
             .padding(4.dp)
     ) {
         ToggleButton(text = "月", isSelected = !isYearView) { onToggle(false) }
@@ -186,17 +187,28 @@ fun ViewToggle(isYearView: Boolean, onToggle: (Boolean) -> Unit) {
 
 @Composable
 fun ToggleButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isSelected) Color(0xFF006C5B) else Color.Transparent,
+        label = "bgColor"
+    )
+
+    val textColor by animateColorAsState(
+        targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+        label = "textColor"
+    )
+
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+            .background(backgroundColor)
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+            color = textColor
         )
     }
 }
