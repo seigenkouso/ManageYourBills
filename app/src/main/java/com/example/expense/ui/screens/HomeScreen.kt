@@ -1,9 +1,16 @@
 package com.example.expense.ui.screens
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -40,14 +47,25 @@ fun HomeScreen(
 ) {
     val transactionList by viewModel.allTransactions.collectAsState(initial = emptyList())
 
-    val currentMonthBalance = remember(transactionList) {
-        val now = LocalDate.now()
-        transactionList
-            .filter { it.date.year == now.year && it.date.month == now.month }
-            .sumOf { if (it.type == 1) it.amount else -it.amount }
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var isYearView by remember { mutableStateOf(false) }
+
+    val displayedTransactions = remember(transactionList, selectedDate, isYearView) {
+        transactionList.filter {
+            if (isYearView) {
+                it.date.year == selectedDate.year
+            } else {
+                it.date.year == selectedDate.year && it.date.month == selectedDate.month
+            }
+        }
     }
-    val groupedTransactions = remember(transactionList) {
-        transactionList
+
+    val currentBalance = remember(displayedTransactions) {
+        displayedTransactions.sumOf { if (it.type == 1) it.amount else -it.amount }
+    }
+
+    val groupedTransactions = remember(displayedTransactions) {
+        displayedTransactions
             .sortedByDescending { it.date }
             .groupBy { it.date.toLocalDate() }
     }
@@ -75,22 +93,27 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
-                    .padding(top = 16.dp, bottom = 8.dp),
+                    .padding(top = 16.dp, bottom = 0.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "记账",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "记账",
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    ViewToggle(isYearView = isYearView, onToggle = { isYearView = it })
+                }
 
                 IconButton(
                     onClick = onNavigateToAbout,
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        //.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 ) {
                     Icon(
                         imageVector = Icons.Default.Info,
@@ -100,12 +123,24 @@ fun HomeScreen(
                 }
             }
 
-            ExpenseSummaryCard(balance = currentMonthBalance)
+            DateSelector(
+                currentDate = selectedDate,
+                isYearView = isYearView,
+                onPrevious = {
+                    selectedDate = if (isYearView) selectedDate.minusYears(1) else selectedDate.minusMonths(1)
+                },
+                onNext = {
+                    selectedDate = if (isYearView) selectedDate.plusYears(1) else selectedDate.plusMonths(1)
+                }
+            )
+
+            ExpenseSummaryCard(balance = currentBalance, label = if (isYearView) "年度结余" else "本月结余")
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (transactionList.isEmpty()) {
-                EmptyStateView()
+            if (displayedTransactions.isEmpty()) {
+                val emptyText = if (isYearView) "${selectedDate.year}年暂无账单" else "${selectedDate.monthValue}月暂无账单"
+                EmptyStateView(text = emptyText)
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(bottom = 80.dp),
@@ -137,90 +172,74 @@ fun HomeScreen(
 }
 
 @Composable
-fun DateHeader(date: LocalDate) {
-    val today = LocalDate.now()
-    val dateStr = when (date) {
-        today -> "今天"
-        today.minusDays(1) -> "昨天"
-        else -> "${date.monthValue}月${date.dayOfMonth}日 ${date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.CHINA)}"
+fun ViewToggle(isYearView: Boolean, onToggle: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(4.dp)
+    ) {
+        ToggleButton(text = "月", isSelected = !isYearView) { onToggle(false) }
+        ToggleButton(text = "年", isSelected = isYearView) { onToggle(true) }
     }
+}
 
-    Surface(
-        color = MaterialTheme.colorScheme.background,
-        modifier = Modifier.fillMaxWidth()
+@Composable
+fun ToggleButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Text(
-            text = dateStr,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+            text = text,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
 @Composable
-fun TransactionItem(transaction: Transaction) {
+fun DateSelector(
+    currentDate: LocalDate,
+    isYearView: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surface),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = getCategoryIcon(transaction.category),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface
+        IconButton(onClick = onPrevious) { Icon(Icons.Default.ChevronLeft, contentDescription = "Prev") }
+
+        AnimatedContent(
+            targetState = currentDate,
+            transitionSpec = {
+                if (targetState.isAfter(initialState)) {
+                    slideInHorizontally { width -> width } + fadeIn() togetherWith slideOutHorizontally { width -> -width } + fadeOut()
+                } else {
+                    slideInHorizontally { width -> -width } + fadeIn() togetherWith slideOutHorizontally { width -> width } + fadeOut()
+                }
+            },
+            label = "DateAnimation"
+        ) { targetDate ->
+            val text = if (isYearView) "${targetDate.year}年" else "${targetDate.year}年 ${targetDate.monthValue}月"
+            Text(
+                text = text,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = transaction.category,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            val timeStr = transaction.date.format(DateTimeFormatter.ofPattern("HH:mm"))
-            val noteStr = transaction.note
-            val displaySubText = if (noteStr.isNotEmpty()) "$timeStr · $noteStr" else timeStr
-
-            Text(
-                text = displaySubText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
-        }
-
-        Column(horizontalAlignment = Alignment.End) {
-            val isExpense = transaction.type == 0
-            val color = if (isExpense) Color(0xFFD32F2F) else Color(0xFF388E3C)
-            val prefix = if (isExpense) "-" else "+"
-
-            Text(
-                text = "$prefix${transaction.amount}",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = color
-            )
-        }
+        IconButton(onClick = onNext) { Icon(Icons.Default.ChevronRight, contentDescription = "Next") }
     }
 }
 
 @Composable
-fun ExpenseSummaryCard(balance: Double) {
+fun ExpenseSummaryCard(balance: Double, label: String) {
     val gradientBrush = Brush.horizontalGradient(
         colors = listOf(Color(0xFF43CEA2), Color(0xFF185A9D))
     )
@@ -234,25 +253,17 @@ fun ExpenseSummaryCard(balance: Double) {
         elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(gradientBrush)
+            modifier = Modifier.fillMaxSize().background(gradientBrush)
         ) {
             Box(
-                modifier = Modifier
-                    .offset(x = 200.dp, y = (-50).dp)
-                    .size(200.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.1f))
+                modifier = Modifier.offset(x = 200.dp, y = (-50).dp).size(200.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
             )
 
             Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .align(Alignment.BottomStart)
+                modifier = Modifier.padding(24.dp).align(Alignment.BottomStart)
             ) {
                 Text(
-                    text = "本月结余",
+                    text = label,
                     style = MaterialTheme.typography.titleMedium,
                     color = Color.White.copy(alpha = 0.8f)
                 )
@@ -261,9 +272,7 @@ fun ExpenseSummaryCard(balance: Double) {
                 val sign = if (balance >= 0) "+" else ""
                 Text(
                     text = "$sign${String.format("%.2f", balance)}",
-                    style = MaterialTheme.typography.displaySmall.copy(
-                        fontWeight = FontWeight.Bold
-                    ),
+                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
                     color = Color.White
                 )
             }
@@ -272,11 +281,58 @@ fun ExpenseSummaryCard(balance: Double) {
                 imageVector = Icons.Default.AccountBalanceWallet,
                 contentDescription = null,
                 tint = Color.White.copy(alpha = 0.3f),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(24.dp)
-                    .size(48.dp)
+                modifier = Modifier.align(Alignment.TopEnd).padding(24.dp).size(48.dp)
             )
+        }
+    }
+}
+
+@Composable
+fun EmptyStateView(text: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.Savings, contentDescription = null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), modifier = Modifier.size(80.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text, color = Color.Gray)
+        }
+    }
+}
+
+@Composable
+fun DateHeader(date: LocalDate) {
+    val today = LocalDate.now()
+    val dateStr = when (date) {
+        today -> "今天"
+        today.minusDays(1) -> "昨天"
+        else -> "${date.monthValue}月${date.dayOfMonth}日 ${date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.CHINA)}"
+    }
+    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxWidth()) {
+        Text(dateStr, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+    }
+}
+
+@Composable
+fun TransactionItem(transaction: Transaction) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
+            Icon(getCategoryIcon(transaction.category), contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(transaction.category, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            val timeStr = transaction.date.format(DateTimeFormatter.ofPattern("HH:mm"))
+            val noteStr = transaction.note
+            val displaySubText = if (noteStr.isNotEmpty()) "$timeStr · $noteStr" else timeStr
+            Text(displaySubText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            val isExpense = transaction.type == 0
+            val color = if (isExpense) Color(0xFFD32F2F) else Color(0xFF388E3C)
+            val prefix = if (isExpense) "-" else "+"
+            Text("$prefix${transaction.amount}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = color)
         }
     }
 }
@@ -289,46 +345,19 @@ fun SwipeToDeleteContainer(
     content: @Composable () -> Unit
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = {
-            if (it == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                true
-            } else {
-                false
-            }
-        }
+        confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDelete(); true } else false }
     )
-
     SwipeToDismissBox(
         state = dismissState,
         backgroundContent = {
-            val color by animateColorAsState(
-                if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) Color(0xFFFF5252) else Color.Transparent, label = "color"
-            )
-            val scale by animateFloatAsState(
-                if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) 1.2f else 0.8f, label = "scale"
-            )
-
-            Box(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).clip(RoundedCornerShape(20.dp)).background(color),
-                contentAlignment = Alignment.CenterEnd
-            ) {
+            val color by animateColorAsState(if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) Color(0xFFFF5252) else Color.Transparent, label = "color")
+            val scale by animateFloatAsState(if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) 1.2f else 0.8f, label = "scale")
+            Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).clip(RoundedCornerShape(20.dp)).background(color), contentAlignment = Alignment.CenterEnd) {
                 Icon(Icons.Outlined.Delete, contentDescription = "删除", tint = Color.White, modifier = Modifier.padding(end = 24.dp).scale(scale))
             }
         },
         content = { content() }
     )
-}
-
-@Composable
-fun EmptyStateView() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Default.Savings, contentDescription = null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), modifier = Modifier.size(80.dp))
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("暂无账单，快去记一笔吧", color = Color.Gray)
-        }
-    }
 }
 
 fun getCategoryIcon(category: String): ImageVector {
