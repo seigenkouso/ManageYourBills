@@ -17,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.expense.ui.screens.AddTransactionScreen
 import com.example.expense.ui.screens.HomeScreen
 import com.example.expense.ui.theme.ExpenseTheme
+import com.example.expense.ui.screens.AboutScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,28 +46,40 @@ fun AppNavigation() {
             HomeScreen(
                 onNavigateToAdd = {
                     navController.navigate("add_transaction")
+                },
+                // ✅ 修复点：传入跳转到关于页的逻辑
+                onNavigateToAbout = {
+                    navController.navigate("about")
                 }
             )
         }
 
         composable(
             route = "add_transaction",
-
             enterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Up,
-                    animationSpec = tween(400)
-                )
+                slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up, tween(400))
             },
-
             popExitTransition = {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Down,
-                    animationSpec = tween(400)
-                )
+                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down, tween(400))
             }
         ) {
             AddTransactionScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(
+            route = "about",
+            enterTransition = {
+                slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))
+            },
+            popExitTransition = {
+                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
+            }
+        ) {
+            AboutScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }

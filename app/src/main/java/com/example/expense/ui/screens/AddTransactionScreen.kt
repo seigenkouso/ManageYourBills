@@ -212,7 +212,7 @@ fun AddTransactionScreen(
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
-                    placeholder = { Text("备注...") },
+                    placeholder = { Text("写点备注...") },
                     leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = Color.Gray) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),

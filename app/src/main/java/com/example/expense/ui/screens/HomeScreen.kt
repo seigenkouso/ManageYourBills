@@ -35,7 +35,8 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     viewModel: TransactionViewModel = viewModel(),
-    onNavigateToAdd: () -> Unit
+    onNavigateToAdd: () -> Unit,
+    onNavigateToAbout: () -> Unit
 ) {
     val transactionList by viewModel.allTransactions.collectAsState(initial = emptyList())
 
@@ -70,14 +71,34 @@ fun HomeScreen(
                 .padding(paddingValues)
                 .fillMaxSize()
         ) {
-            Text(
-                text = "记账",
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onBackground,
+            Row(
                 modifier = Modifier
+                    .fillMaxWidth()
                     .padding(horizontal = 20.dp)
-                    .padding(top = 16.dp, bottom = 8.dp)
-            )
+                    .padding(top = 16.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "记账",
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                IconButton(
+                    onClick = onNavigateToAbout,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        //.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "关于",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
             ExpenseSummaryCard(balance = currentMonthBalance)
 
