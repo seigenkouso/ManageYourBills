@@ -1,4 +1,4 @@
-# Manage Your Bills 记账 v1.0.3
+# Manage Your Bills 记账 v1.1.0
 
 ![Kotlin](https://img.shields.io/badge/Kotlin-1.9.0-purple?style=flat&logo=kotlin)
 ![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-green?style=flat&logo=android)
