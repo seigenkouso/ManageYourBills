@@ -4,27 +4,28 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.TypeConverters
+import com.example.expense.data.Transaction // 引用实体类 (在 data 包)
 
 @Database(entities = [Transaction::class], version = 1, exportSchema = false)
-@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun transactionDao(): TransactionDao
 
     companion object {
         @Volatile
-        private var Instance: AppDatabase? = null
+        private var INSTANCE: AppDatabase? = null
 
         fun getDatabase(context: Context): AppDatabase {
-            return Instance ?: synchronized(this) {
-                Room.databaseBuilder(
-                    context,
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
                     AppDatabase::class.java,
                     "expense_database"
                 )
+                    .fallbackToDestructiveMigration()
                     .build()
-                    .also { Instance = it }
+                INSTANCE = instance
+                instance
             }
         }
     }

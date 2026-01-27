@@ -80,7 +80,7 @@ fun AppNavigation() {
             }
         ) {
             AboutScreen(
-                onNavigateBack = {
+                onBack = {
                     navController.popBackStack()
                 }
             )
